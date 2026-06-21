@@ -1,0 +1,4 @@
+interface:
+  display_name: "形态捕手"
+  short_description: "用形态捕手MCP按文字、K线截图或手绘图查找相似股票期货"
+  default_prompt: "根据我的文字描述、K线截图或手绘图，调用形态捕手MCP查找相似股票或期货，并给出结果页和订阅入口。"
