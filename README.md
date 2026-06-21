@@ -23,13 +23,23 @@ https://kkk.quant789.com/mcp
 
 ## 快速开始
 
-### 1. 下载并安装
+### 1. 把仓库交给你的 AI
 
-下载本仓库，并按你正在使用的智能体平台说明安装这个 Skill。
+把这个仓库地址发给你的 AI：
+
+```text
+https://github.com/quantskills/skill-xingtai-catcher
+```
+
+如果你的 AI 支持上传文件，也可以下载 ZIP 后直接上传给它：
+
+```text
+https://github.com/quantskills/skill-xingtai-catcher/archive/refs/heads/main.zip
+```
 
 ### 2. 直接提需求
 
-安装后，你可以直接对智能体说：
+然后你可以直接说：
 
 ```text
 帮我找 A 股里类似 W 底反转的股票，日线，120 根 BAR，返回 Top5。
