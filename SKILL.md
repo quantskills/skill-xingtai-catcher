@@ -1,6 +1,6 @@
 ---
 name: skill-xingtai-catcher
-description: Use when a general-purpose AI agent needs to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. Prefer the bundled direct helper script when the host platform cannot create MCP connections; use the hosted MCP service only when MCP tools are available. Covers default parameters, text/image search, result formatting, and guidance for sending users to the PatternCatcher website for saved templates and daily push subscriptions.
+description: Use when a general-purpose AI agent needs to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. Prefer the bundled direct helper script when the host platform cannot create MCP connections; use the hosted MCP service only when MCP tools are available. Covers parameter clarification for daily/60-minute timeframe and 60/120 BAR windows, text/image search, result formatting, and guidance for sending users to the PatternCatcher website for saved templates and daily push subscriptions.
 quantSkills:
   organization: https://github.com/quantskills
   repository: quantskills/skill-xingtai-catcher
@@ -30,13 +30,28 @@ Prefer direct mode unless the platform already exposes MCP tools.
 
 - Direct mode: run `scripts/xingtai_search.py`. The hosted service address is already hardcoded in the script, so the user does not need to create an MCP server, fill a token, or deploy anything.
 - MCP mode: use `xingtai-catcher` MCP tools only when the host platform has already connected the MCP service.
+- Before searching, resolve both `timeframe` and `window_bars`. If the user did not clearly specify them and they cannot be inferred, ask one short clarification question instead of immediately using defaults.
 - Never invent symbols, scores, chart URLs, result pages, share pages, or sessions.
+- Never show raw execution transcripts, `System (untrusted)` blocks, `Exec completed` logs, or raw JSON to the user. Parse the result and reply with the response contract below.
 - Treat outputs as pattern-similarity research and screening references, not investment advice.
 - If the user wants daily tracking, tell them to open the returned PatternCatcher URL, log in or register, save the pattern or subscribe to the template, then configure Feishu or WeCom push settings on the website.
 
-## Default Parameters
+## Parameter Clarification
 
-When the user does not specify details, use:
+The user can specify both dimensions naturally:
+
+- Timeframe: `1d` for 日线, `60m` for 60分钟.
+- Window length: `60` or `120` BAR for normal use. `30` BAR is supported only when the user explicitly asks for a shorter window.
+
+If either timeframe or window length is missing, ask:
+
+```text
+你想按哪个周期和长度匹配？可以选：日线 120 BAR、日线 60 BAR、60分钟 120 BAR、60分钟 60 BAR。你也可以说“默认”，我就用日线 120 BAR。
+```
+
+Do not call the search tool until the user answers, unless the user explicitly says to use the default.
+
+Use fallback defaults only when the user says “默认”, “你看着办”, or “都行”:
 
 - `universe="all"`
 - `timeframe="1d"`
@@ -60,6 +75,17 @@ Interpret common Chinese wording:
 - `期货`, `商品期货` -> prefer `universe="futures"`.
 - `60分钟`, `小时线`, `分钟`, `短线` -> prefer `timeframe="60m"`.
 - `日线`, `中线`, `波段`, `最近半年` -> prefer `timeframe="1d"` and `window_bars=120`.
+- `60根`, `60 BAR` -> use `window_bars=60`.
+- `120根`, `120 BAR`, `最近半年` -> use `window_bars=120`.
+
+## Shape Context
+
+When using or explaining generated drawings:
+
+- W-bottom drawings must include preceding weakness: draw a down move first, then the first bottom, bounce, second bottom, and right-side lift. Do not draw only the final `W`.
+- M-top drawings must include preceding strength: draw an up move first, then the first top, pullback, second top, and breakdown/right-side fade. Do not draw only the final `M`.
+- If the user hand-draws W/M patterns, remind them that adding a short pre-trend improves matching quality.
+- For `strong_trend` and `bottom_reversal`, prefer the server radar templates when the user wants standard screening; use custom drawing/image search only when the user provides a specific sketch or screenshot.
 
 ## Direct Mode
 
@@ -68,6 +94,8 @@ Use direct mode when MCP tools are not available:
 ```bash
 python scripts/xingtai_search.py text "找 W底右侧抬升的 A 股" --universe stock --timeframe 1d --window-bars 120 --top-n 5
 ```
+
+The helper script prints a user-ready Chinese summary by default. Use `--json` only for debugging or custom integrations, and never paste that raw JSON into the user-facing answer.
 
 For images:
 

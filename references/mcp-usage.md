@@ -12,6 +12,23 @@ https://kkk.quant789.com/mcp
 
 The user does not need to configure MCP, fill a token, or deploy a server.
 
+The direct script prints a user-ready text summary by default. Do not paste raw execution transcripts, `System (untrusted)` blocks, `Exec completed` logs, or raw JSON into the final user reply. Use `--json` only for debugging or custom integrations.
+
+## Clarification Gate
+
+Before calling the direct script or MCP tools, resolve both:
+
+- `timeframe`: `1d` or `60m`
+- `window_bars`: normally `60` or `120`; use `30` only when the user explicitly asks for a short window.
+
+If the user does not specify one of these dimensions, ask this first and wait:
+
+```text
+你想按哪个周期和长度匹配？可以选：日线 120 BAR、日线 60 BAR、60分钟 120 BAR、60分钟 60 BAR。你也可以说“默认”，我就用日线 120 BAR。
+```
+
+Only use `timeframe="1d"` and `window_bars=120` without asking when the user says “默认”, “你看着办”, or “都行”.
+
 ### Text Search
 
 ```bash
@@ -48,6 +65,12 @@ python scripts/xingtai_search.py result session_xxx --top-n 5
 | Top10、多一点 | `top_n=10` |
 
 Clamp unsupported values to the nearest allowed option and mention the resolved parameters in the reply.
+
+## Shape Context
+
+- W-bottom synthetic or hand-drawn searches should include a preceding decline before the W, then the right-side lift.
+- M-top synthetic or hand-drawn searches should include a preceding rise before the M, then the right-side fade or breakdown.
+- Standard screening requests such as 强趋势延续 and 底部反转 should prefer the server radar templates and their subscribe URLs. Ask the user to draw only for custom shapes.
 
 ## Optional MCP Config
 

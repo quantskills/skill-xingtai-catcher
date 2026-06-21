@@ -23,6 +23,12 @@ MCP_URL = "https://kkk.quant789.com/mcp"
 PROTOCOL_VERSION = "2024-11-05"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 
 class PatternCatcherError(RuntimeError):
     pass
@@ -160,11 +166,116 @@ def _print_json(data: Any) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+def _market_label(value: Any) -> str:
+    mapping = {"all": "全市场", "stock": "股票", "futures": "期货"}
+    return mapping.get(str(value or "all"), str(value or "全市场"))
+
+
+def _timeframe_label(value: Any) -> str:
+    mapping = {"1d": "日线", "60m": "60分钟"}
+    return mapping.get(str(value or "1d"), str(value or "日线"))
+
+
+def _score_text(value: Any) -> str:
+    try:
+        return f"{float(value):.1f}"
+    except (TypeError, ValueError):
+        return "-"
+
+
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None and value != "":
+            return value
+    return None
+
+
+def _format_patterns(data: dict[str, Any]) -> str:
+    items = data.get("items") or []
+    lines = [
+        "形态捕手支持这些搜索维度：",
+        "- 市场：全市场、股票、期货",
+        "- 周期：日线、60分钟",
+        "- 数据长度：30 / 60 / 120 BAR",
+        "- 返回数量：默认 Top5，最多 Top10",
+        "",
+        "可识别的形态：",
+    ]
+    for item in items:
+        aliases = "、".join(str(v) for v in (item.get("aliases") or [])[:5])
+        suffix = f"（常见说法：{aliases}）" if aliases else ""
+        lines.append(f"- {item.get('name') or item.get('template_id')}{suffix}")
+    guidance = data.get("guidance")
+    if guidance:
+        lines.extend(["", f"提示：{guidance}"])
+    return "\n".join(lines)
+
+
+def _format_match(data: dict[str, Any]) -> str:
+    params = data.get("resolved_params") or data.get("query_summary") or {}
+    items = data.get("items") or []
+    first_item = items[0] if items else {}
+    universe = _market_label(_first_present(params.get("universe"), first_item.get("symbol_type"), first_item.get("market")))
+    timeframe = _timeframe_label(_first_present(params.get("timeframe"), first_item.get("timeframe")))
+    window_bars = _first_present(params.get("window_bars"), first_item.get("window_bars"), first_item.get("bar_count"), 120)
+    top_n = params.get("top_n") or len(items) or 5
+    lines = [
+        f"我按「{universe} / {timeframe} / {window_bars} BAR / Top{top_n}」为你查找了相似形态。",
+        "",
+        "候选结果",
+    ]
+    if not items:
+        lines.append("暂时没有找到候选结果，可以换一个市场、周期或 BAR 长度再试。")
+    for idx, item in enumerate(items, 1):
+        name = item.get("symbol_name") or item.get("name") or ""
+        code = item.get("symbol_code") or item.get("code") or ""
+        market = _market_label(item.get("symbol_type") or item.get("market"))
+        date = item.get("scan_date") or item.get("latest_bar_time") or "-"
+        score = _first_present(item.get("score"), item.get("overall_score"), item.get("final_score"), item.get("similarity_score"))
+        lines.append(f"{idx}. {name} {code}，评分 {_score_text(score)}，{market}，数据日 {date}")
+
+    result_url = data.get("result_url") or ""
+    share_url = data.get("share_url") or (data.get("share") or {}).get("share_url") or ""
+    subscribe_url = data.get("subscribe_url") or (f"{result_url}?intent=subscribe" if result_url else "")
+    if result_url:
+        lines.extend(["", f"结果页：{result_url}"])
+    if share_url:
+        lines.append(f"分享页：{share_url}")
+    if subscribe_url:
+        lines.append(f"订阅入口：{subscribe_url}")
+    lines.extend(
+        [
+            "",
+            "想每天自动跟踪这个形态，请打开结果页登录形态捕手，保存形态或订阅模板，并设置飞书/企微推送。",
+            "结果仅用于形态相似度研究，不构成投资建议。",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _print_result(data: Any, *, as_json: bool, command: str) -> None:
+    if as_json:
+        _print_json(data)
+        return
+    if isinstance(data, dict) and command == "patterns":
+        print(_format_patterns(data))
+        return
+    if isinstance(data, dict):
+        print(_format_match(data))
+        return
+    print(str(data))
+
+
+def _add_json_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--json", action="store_true", help="Print raw JSON for debugging or custom integrations.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Search similar K-line patterns with PatternCatcher.")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("patterns", help="List supported pattern inputs and defaults.")
+    patterns = sub.add_parser("patterns", help="List supported pattern inputs and defaults.")
+    _add_json_option(patterns)
 
     text = sub.add_parser("text", help="Search by natural-language pattern description.")
     text.add_argument("query", help="Pattern description, for example: W底右侧抬升")
@@ -172,6 +283,7 @@ def build_parser() -> argparse.ArgumentParser:
     text.add_argument("--timeframe", choices=["1d", "60m"], default="1d")
     text.add_argument("--window-bars", type=int, choices=[30, 60, 120], default=120)
     text.add_argument("--top-n", type=int, default=5)
+    _add_json_option(text)
 
     image = sub.add_parser("image", help="Search by hand drawing or K-line screenshot.")
     image.add_argument("--image-path", required=True, help="Local image path.")
@@ -180,10 +292,12 @@ def build_parser() -> argparse.ArgumentParser:
     image.add_argument("--timeframe", choices=["1d", "60m"], default="1d")
     image.add_argument("--window-bars", type=int, choices=[30, 60, 120], default=120)
     image.add_argument("--top-n", type=int, default=5)
+    _add_json_option(image)
 
     result = sub.add_parser("result", help="Open an existing match session.")
     result.add_argument("session_id")
     result.add_argument("--top-n", type=int, default=5)
+    _add_json_option(result)
     return parser
 
 
@@ -192,9 +306,9 @@ def main(argv: list[str] | None = None) -> int:
     client = DirectMcpClient()
     try:
         if args.command == "patterns":
-            _print_json(client.call_tool("list_supported_patterns", {}))
+            _print_result(client.call_tool("list_supported_patterns", {}), as_json=args.json, command=args.command)
         elif args.command == "text":
-            _print_json(
+            _print_result(
                 client.call_tool(
                     "find_similar_by_text",
                     {
@@ -204,10 +318,12 @@ def main(argv: list[str] | None = None) -> int:
                         "window_bars": args.window_bars,
                         "top_n": max(1, min(args.top_n, 10)),
                     },
-                )
+                ),
+                as_json=args.json,
+                command=args.command,
             )
         elif args.command == "image":
-            _print_json(
+            _print_result(
                 client.call_tool(
                     "find_similar_by_image",
                     {
@@ -218,10 +334,16 @@ def main(argv: list[str] | None = None) -> int:
                         "window_bars": args.window_bars,
                         "top_n": max(1, min(args.top_n, 10)),
                     },
-                )
+                ),
+                as_json=args.json,
+                command=args.command,
             )
         elif args.command == "result":
-            _print_json(client.call_tool("get_match_result", {"session_id": args.session_id, "top_n": max(1, min(args.top_n, 10))}))
+            _print_result(
+                client.call_tool("get_match_result", {"session_id": args.session_id, "top_n": max(1, min(args.top_n, 10))}),
+                as_json=args.json,
+                command=args.command,
+            )
         return 0
     except PatternCatcherError as exc:
         print(f"PatternCatcher error: {exc}", file=sys.stderr)
