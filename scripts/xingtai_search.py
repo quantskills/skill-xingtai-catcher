@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Direct PatternCatcher search helper.
 
-This script lets an AI agent call the hosted PatternCatcher service without
-configuring an MCP server in the host platform. It speaks the public MCP HTTP
-endpoint directly, using only Python's standard library.
+This script lets an AI agent call the hosted PatternCatcher MCP endpoint
+without asking the user to configure MCP manually.
 """
 
 from __future__ import annotations
@@ -39,7 +38,7 @@ def _post_json(url: str, payload: dict[str, Any], session_id: str = "") -> tuple
     headers = {
         "Accept": "application/json, text/event-stream",
         "Content-Type": "application/json",
-        "User-Agent": "skill-xingtai-catcher/1.0",
+        "User-Agent": "skill-xingtai-catcher/1.1",
     }
     if session_id:
         headers["mcp-session-id"] = session_id
@@ -114,7 +113,7 @@ class DirectMcpClient:
                 "params": {
                     "protocolVersion": PROTOCOL_VERSION,
                     "capabilities": {},
-                    "clientInfo": {"name": "skill-xingtai-catcher", "version": "1.0"},
+                    "clientInfo": {"name": "skill-xingtai-catcher", "version": "1.1"},
                 },
             },
         )
@@ -162,8 +161,10 @@ def _image_to_base64(path: str) -> str:
     return base64.b64encode(data).decode("ascii")
 
 
-def _print_json(data: Any) -> None:
-    print(json.dumps(data, ensure_ascii=False, indent=2))
+def _write_output(data: Any, path: str) -> None:
+    output_path = Path(path).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _market_label(value: Any) -> str:
@@ -197,7 +198,7 @@ def _format_patterns(data: dict[str, Any]) -> str:
         "- 市场：全市场、股票、期货",
         "- 周期：日线、60分钟",
         "- 数据长度：30 / 60 / 120 BAR",
-        "- 返回数量：默认 Top5，最多 Top10",
+        "- 返回数量：默认 Top5，最大 Top10",
         "",
         "可识别的形态：",
     ]
@@ -219,10 +220,11 @@ def _format_match(data: dict[str, Any]) -> str:
     timeframe = _timeframe_label(_first_present(params.get("timeframe"), first_item.get("timeframe")))
     window_bars = _first_present(params.get("window_bars"), first_item.get("window_bars"), first_item.get("bar_count"), 120)
     top_n = params.get("top_n") or len(items) or 5
+
     lines = [
         f"我按「{universe} / {timeframe} / {window_bars} BAR / Top{top_n}」为你查找了相似形态。",
         "",
-        "候选结果",
+        "候选结果：",
     ]
     if not items:
         lines.append("暂时没有找到候选结果，可以换一个市场、周期或 BAR 长度再试。")
@@ -255,7 +257,7 @@ def _format_match(data: dict[str, Any]) -> str:
 
 def _print_result(data: Any, *, as_json: bool, command: str) -> None:
     if as_json:
-        _print_json(data)
+        print(json.dumps(data, ensure_ascii=False, indent=2))
         return
     if isinstance(data, dict) and command == "patterns":
         print(_format_patterns(data))
@@ -266,8 +268,30 @@ def _print_result(data: Any, *, as_json: bool, command: str) -> None:
     print(str(data))
 
 
-def _add_json_option(parser: argparse.ArgumentParser) -> None:
+def _emit_result(data: Any, args: argparse.Namespace) -> None:
+    if args.output:
+        _write_output(data, args.output)
+    if args.quiet:
+        return
+    _print_result(data, as_json=args.json, command=args.command)
+
+
+def _add_output_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print raw JSON for debugging or custom integrations.")
+    parser.add_argument("--output", help="Write raw JSON result to this file.")
+    parser.add_argument("--quiet", action="store_true", help="Suppress stdout. Use with --output when the host exposes command logs.")
+
+
+def _candle_detection_failed(exc: PatternCatcherError) -> bool:
+    text = str(exc).lower()
+    needles = [
+        "not enough candle groups detected",
+        "not enough candle",
+        "candle groups",
+        "无法识别足够",
+        "k线结构",
+    ]
+    return any(needle in text for needle in needles)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -275,7 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     patterns = sub.add_parser("patterns", help="List supported pattern inputs and defaults.")
-    _add_json_option(patterns)
+    _add_output_options(patterns)
 
     text = sub.add_parser("text", help="Search by natural-language pattern description.")
     text.add_argument("query", help="Pattern description, for example: W底右侧抬升")
@@ -283,21 +307,31 @@ def build_parser() -> argparse.ArgumentParser:
     text.add_argument("--timeframe", choices=["1d", "60m"], default="1d")
     text.add_argument("--window-bars", type=int, choices=[30, 60, 120], default=120)
     text.add_argument("--top-n", type=int, default=5)
-    _add_json_option(text)
+    _add_output_options(text)
 
     image = sub.add_parser("image", help="Search by hand drawing or K-line screenshot.")
     image.add_argument("--image-path", required=True, help="Local image path.")
-    image.add_argument("--kind", choices=["drawing", "upload_screenshot"], default="drawing")
+    image.add_argument(
+        "--kind",
+        choices=["drawing", "upload_screenshot"],
+        default="drawing",
+        help="Use drawing for sketches/single trend lines; use upload_screenshot only for real candlestick screenshots.",
+    )
     image.add_argument("--universe", choices=["all", "stock", "futures"], default="all")
     image.add_argument("--timeframe", choices=["1d", "60m"], default="1d")
     image.add_argument("--window-bars", type=int, choices=[30, 60, 120], default=120)
     image.add_argument("--top-n", type=int, default=5)
-    _add_json_option(image)
+    image.add_argument(
+        "--no-retry-as-drawing",
+        action="store_true",
+        help="Do not retry as drawing when a screenshot lacks detectable candle groups.",
+    )
+    _add_output_options(image)
 
     result = sub.add_parser("result", help="Open an existing match session.")
     result.add_argument("session_id")
     result.add_argument("--top-n", type=int, default=5)
-    _add_json_option(result)
+    _add_output_options(result)
     return parser
 
 
@@ -306,44 +340,41 @@ def main(argv: list[str] | None = None) -> int:
     client = DirectMcpClient()
     try:
         if args.command == "patterns":
-            _print_result(client.call_tool("list_supported_patterns", {}), as_json=args.json, command=args.command)
+            _emit_result(client.call_tool("list_supported_patterns", {}), args)
         elif args.command == "text":
-            _print_result(
-                client.call_tool(
-                    "find_similar_by_text",
-                    {
-                        "query": args.query,
-                        "universe": args.universe,
-                        "timeframe": args.timeframe,
-                        "window_bars": args.window_bars,
-                        "top_n": max(1, min(args.top_n, 10)),
-                    },
-                ),
-                as_json=args.json,
-                command=args.command,
+            result = client.call_tool(
+                "find_similar_by_text",
+                {
+                    "query": args.query,
+                    "universe": args.universe,
+                    "timeframe": args.timeframe,
+                    "window_bars": args.window_bars,
+                    "top_n": max(1, min(args.top_n, 10)),
+                },
             )
+            _emit_result(result, args)
         elif args.command == "image":
-            _print_result(
-                client.call_tool(
-                    "find_similar_by_image",
-                    {
-                        "image_base64": _image_to_base64(args.image_path),
-                        "kind": args.kind,
-                        "universe": args.universe,
-                        "timeframe": args.timeframe,
-                        "window_bars": args.window_bars,
-                        "top_n": max(1, min(args.top_n, 10)),
-                    },
-                ),
-                as_json=args.json,
-                command=args.command,
-            )
+            image_base64 = _image_to_base64(args.image_path)
+            payload = {
+                "image_base64": image_base64,
+                "kind": args.kind,
+                "universe": args.universe,
+                "timeframe": args.timeframe,
+                "window_bars": args.window_bars,
+                "top_n": max(1, min(args.top_n, 10)),
+            }
+            try:
+                result = client.call_tool("find_similar_by_image", payload)
+            except PatternCatcherError as exc:
+                if args.kind == "upload_screenshot" and not args.no_retry_as_drawing and _candle_detection_failed(exc):
+                    payload["kind"] = "drawing"
+                    result = client.call_tool("find_similar_by_image", payload)
+                else:
+                    raise
+            _emit_result(result, args)
         elif args.command == "result":
-            _print_result(
-                client.call_tool("get_match_result", {"session_id": args.session_id, "top_n": max(1, min(args.top_n, 10))}),
-                as_json=args.json,
-                command=args.command,
-            )
+            result = client.call_tool("get_match_result", {"session_id": args.session_id, "top_n": max(1, min(args.top_n, 10))})
+            _emit_result(result, args)
         return 0
     except PatternCatcherError as exc:
         print(f"PatternCatcher error: {exc}", file=sys.stderr)
