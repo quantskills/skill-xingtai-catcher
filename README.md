@@ -134,10 +134,17 @@ AI 应该返回整理后的摘要，不应该把 `System (untrusted)`、`Exec co
 
 这是某些智能体平台把脚本执行日志直接显示出来了。AI 应该只读取其中的结果并整理成自然语言，不应该把执行日志当成最终回复。
 
-如果平台会强制展示脚本 stdout，AI 可以使用静默模式：
+新版脚本在 AI 工具捕获环境里默认不打印完整结果，而是生成两个文件：
+
+- `.xingtai_result.txt`：给 AI 读取并整理成最终回复
+- `.xingtai_result.json`：给二次集成读取的结构化结果
+
+如果你看到粉色的 `System (untrusted)` 块里还有候选股票和链接，说明 AI 使用的还是旧版 Skill 或旧脚本，需要更新仓库后重试。
+
+人手动在终端调试时，如果想直接看到结果，可以加 `--print`：
 
 ```bash
-python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120 --output .xingtai_result.json --quiet
+python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120 --print
 ```
 
 ### 为什么手绘图提示识别不到 K 线？
@@ -147,6 +154,8 @@ python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-
 ## 直接运行脚本
 
 大多数用户只需要把仓库交给 AI，不需要自己运行命令。如果你的 AI 需要明确命令，可以使用仓库里的直连脚本。
+
+AI 调用脚本后，应该读取 `.xingtai_result.txt`，再把内容整理给用户。不要把命令执行日志或 `.xingtai_result.json` 原文贴出来。
 
 文字搜索：
 
@@ -166,7 +175,7 @@ K 线截图搜索：
 python scripts/xingtai_search.py image --image-path ./chart.png --kind upload_screenshot --universe all --timeframe 1d --window-bars 120 --top-n 5
 ```
 
-默认命令输出中文摘要。只有调试或二次集成时，才在命令最后加 `--json`。
+默认命令在 AI 工具捕获环境里会写入 `.xingtai_result.txt` 和 `.xingtai_result.json`。只有人手动调试时，才在命令最后加 `--print`；只有调试或二次集成时，才使用 `--json`。
 
 ## 可选：MCP 地址
 

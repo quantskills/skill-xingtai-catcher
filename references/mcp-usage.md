@@ -6,7 +6,8 @@ Use whichever integration the host platform actually supports:
 
 - If MCP tools are already connected, use the MCP tools directly.
 - If MCP is not available but local script execution is available, use `scripts/xingtai_search.py`.
-- If the host exposes command stdout as a visible `System (untrusted)` block, use the script's quiet file-output mode or avoid script execution in user-facing chat.
+- In captured/non-interactive AI environments, the script writes `.xingtai_result.txt` and `.xingtai_result.json` by default instead of printing the full result to stdout. Read `.xingtai_result.txt` and summarize it.
+- If the host still exposes command output as a visible `System (untrusted)` block, do not quote that block. Read the result file and answer normally.
 
 The hosted service address is already hardcoded in `scripts/xingtai_search.py`:
 
@@ -53,15 +54,26 @@ python scripts/xingtai_search.py image --image-path ./chart.png --kind upload_sc
 
 If an upload screenshot fails with `not enough candle groups detected`, retry as `drawing`. The bundled script does this automatically unless `--no-retry-as-drawing` is set.
 
-## Quiet Mode
+## Output Mode
 
-Some AI platforms display every shell command result as an untrusted system block. In that case, suppress stdout and write JSON to a file:
+Default AI-platform behavior:
 
 ```bash
-python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120 --output .xingtai_result.json --quiet
+python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120
 ```
 
-Then parse `.xingtai_result.json` and produce a normal answer. Do not paste the file's raw JSON unless the user explicitly asks for machine-readable output.
+Then read:
+
+- `.xingtai_result.txt` for the user-facing summary
+- `.xingtai_result.json` for structured fields
+
+For terminal debugging, force stdout with:
+
+```bash
+python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120 --print
+```
+
+Do not paste raw JSON unless the user explicitly asks for machine-readable output.
 
 ## Existing Session
 

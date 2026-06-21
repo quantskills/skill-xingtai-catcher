@@ -21,6 +21,8 @@ from typing import Any
 MCP_URL = "https://kkk.quant789.com/mcp"
 PROTOCOL_VERSION = "2024-11-05"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
+DEFAULT_JSON_OUTPUT = ".xingtai_result.json"
+DEFAULT_TEXT_OUTPUT = ".xingtai_result.txt"
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -167,6 +169,12 @@ def _write_output(data: Any, path: str) -> None:
     output_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _write_text_output(text: str, path: str) -> None:
+    output_path = Path(path).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(text, encoding="utf-8")
+
+
 def _market_label(value: Any) -> str:
     mapping = {"all": "全市场", "stock": "股票", "futures": "期货"}
     return mapping.get(str(value or "all"), str(value or "全市场"))
@@ -255,31 +263,46 @@ def _format_match(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _print_result(data: Any, *, as_json: bool, command: str) -> None:
+def _format_result(data: Any, *, as_json: bool, command: str) -> str:
     if as_json:
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-        return
+        return json.dumps(data, ensure_ascii=False, indent=2)
     if isinstance(data, dict) and command == "patterns":
-        print(_format_patterns(data))
-        return
+        return _format_patterns(data)
     if isinstance(data, dict):
-        print(_format_match(data))
-        return
-    print(str(data))
+        return _format_match(data)
+    return str(data)
+
+
+def _print_result(data: Any, *, as_json: bool, command: str) -> None:
+    print(_format_result(data, as_json=as_json, command=command))
 
 
 def _emit_result(data: Any, args: argparse.Namespace) -> None:
-    if args.output:
-        _write_output(data, args.output)
-    if args.quiet:
+    formatted_text = _format_result(data, as_json=False, command=args.command)
+    requested_stdout = bool(args.print_stdout or args.json or (not args.quiet and sys.stdout.isatty()))
+    should_print = requested_stdout and not args.quiet
+    json_output = args.output or (None if should_print else DEFAULT_JSON_OUTPUT)
+    text_output = args.text_output or (None if should_print else DEFAULT_TEXT_OUTPUT)
+
+    if json_output:
+        _write_output(data, json_output)
+    if text_output:
+        _write_text_output(formatted_text, text_output)
+    if not should_print:
         return
     _print_result(data, as_json=args.json, command=args.command)
 
 
 def _add_output_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print raw JSON for debugging or custom integrations.")
+    parser.add_argument("--print", dest="print_stdout", action="store_true", help="Force a user-readable summary to stdout.")
     parser.add_argument("--output", help="Write raw JSON result to this file.")
-    parser.add_argument("--quiet", action="store_true", help="Suppress stdout. Use with --output when the host exposes command logs.")
+    parser.add_argument("--text-output", help="Write user-readable text summary to this file.")
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress stdout. By default, captured/non-TTY runs write .xingtai_result.txt and .xingtai_result.json instead.",
+    )
 
 
 def _candle_detection_failed(exc: PatternCatcherError) -> bool:

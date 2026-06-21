@@ -1,4 +1,4 @@
 interface:
   display_name: "形态捕手"
   short_description: "按文字、K线截图或手绘图查找相似股票期货，支持无 MCP 直连"
-  default_prompt: "根据我的文字描述、K线截图或手绘图，使用形态捕手查找相似股票或期货；如果我没说周期和 BAR 长度，先问我是日线还是 60 分钟、60 BAR 还是 120 BAR。手绘线条图按 drawing 处理，真实 K 线蜡烛图截图才按 upload_screenshot 处理。"
+  default_prompt: "根据我的文字描述、K线截图或手绘图，使用形态捕手查找相似股票或期货；如果我没说周期和 BAR 长度，先问我是日线还是 60 分钟、60 BAR 还是 120 BAR。手绘线条图按 drawing 处理，真实 K 线蜡烛图截图才按 upload_screenshot 处理。脚本调用后读取 .xingtai_result.txt 整理回复，不要把 System(untrusted)、Exec completed 或原始 JSON 贴给用户。"

@@ -75,7 +75,9 @@ When explaining generated drawings:
 
 ## Direct Mode
 
-Use direct mode when MCP tools are not available and the host can run local scripts:
+Use direct mode when MCP tools are not available and the host can run local scripts.
+
+For AI-platform usage, run the script normally and then read `.xingtai_result.txt`. In captured/non-interactive environments the script intentionally does not print the full result to stdout, so platforms like QCLAW do not expose candidates and links inside a `System (untrusted)` block.
 
 ```bash
 python scripts/xingtai_search.py text "找 W 底右侧抬升的 A 股" --universe stock --timeframe 1d --window-bars 120 --top-n 5
@@ -93,10 +95,12 @@ For real K-line screenshots:
 python scripts/xingtai_search.py image --image-path ./chart.png --kind upload_screenshot --universe all --timeframe 1d --window-bars 120 --top-n 5
 ```
 
-If the host platform exposes command stdout as a visible `System (untrusted)` block, do not use normal stdout mode. Use quiet file-output mode and summarize the parsed file content:
+After the command finishes, read `.xingtai_result.txt` and summarize it. Use `.xingtai_result.json` only when structured fields are needed.
+
+If a human is debugging in a terminal and wants stdout output, add `--print`:
 
 ```bash
-python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120 --output .xingtai_result.json --quiet
+python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120 --print
 ```
 
 Use `--json` only for debugging or custom integrations. Never paste raw JSON into the user-facing answer.
