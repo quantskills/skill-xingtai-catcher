@@ -1,6 +1,6 @@
 ---
 name: skill-xingtai-catcher
-description: Use when a general-purpose AI agent needs to call the hosted PatternCatcher MCP service to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. It covers default parameters, text/image tool selection, result formatting, and guidance for sending users to the PatternCatcher website for saved templates and daily push subscriptions.
+description: Use when a general-purpose AI agent needs to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. Prefer the bundled direct helper script when the host platform cannot create MCP connections; use the hosted MCP service only when MCP tools are available. Covers default parameters, text/image search, result formatting, and guidance for sending users to the PatternCatcher website for saved templates and daily push subscriptions.
 quantSkills:
   organization: https://github.com/quantskills
   repository: quantskills/skill-xingtai-catcher
@@ -16,21 +16,22 @@ quantSkills:
   validation_level: runnable
   maintainer_type: community
   requires: []
-  summary_zh: 通过形态捕手 MCP，按文字、K线截图或手绘图查找相似股票和期货形态。
-  summary_en: MCP skill for finding similar A-share stock and futures K-line patterns from text, screenshots, or hand drawings.
+  summary_zh: 按文字、K线截图或手绘图查找相似股票和期货形态，支持无 MCP 直连脚本。
+  summary_en: Find similar A-share stock and futures K-line patterns from text, screenshots, or hand drawings, with a direct helper script for non-MCP agents.
 ---
 
 # Xingtai Pattern Catcher
 
-Use this skill to call the hosted PatternCatcher MCP service. The service turns a user's text description, K-line screenshot, or hand-drawn trend image into a similar-pattern search over A-share stocks and futures.
+Use this skill to search similar A-share stock and futures K-line patterns from text, K-line screenshots, or hand-drawn trend images.
 
-## Core Rules
+## Primary Rule
 
-- Use the `xingtai-catcher` MCP server for real results. Do not invent symbols, scores, chart URLs, result pages, share pages, or sessions.
-- Use the hosted MCP URL: `https://kkk.quant789.com/mcp`.
-- Do not ask the user for a token. The public trial MCP endpoint does not require a user-visible token.
+Prefer direct mode unless the platform already exposes MCP tools.
+
+- Direct mode: run `scripts/xingtai_search.py`. The hosted service address is already hardcoded in the script, so the user does not need to create an MCP server, fill a token, or deploy anything.
+- MCP mode: use `xingtai-catcher` MCP tools only when the host platform has already connected the MCP service.
+- Never invent symbols, scores, chart URLs, result pages, share pages, or sessions.
 - Treat outputs as pattern-similarity research and screening references, not investment advice.
-- Keep replies compact: resolved parameters, Top candidates, result/share URLs, and subscription guidance.
 - If the user wants daily tracking, tell them to open the returned PatternCatcher URL, log in or register, save the pattern or subscribe to the template, then configure Feishu or WeCom push settings on the website.
 
 ## Default Parameters
@@ -60,15 +61,31 @@ Interpret common Chinese wording:
 - `60分钟`, `小时线`, `分钟`, `短线` -> prefer `timeframe="60m"`.
 - `日线`, `中线`, `波段`, `最近半年` -> prefer `timeframe="1d"` and `window_bars=120`.
 
-## Tool Selection
+## Direct Mode
+
+Use direct mode when MCP tools are not available:
+
+```bash
+python scripts/xingtai_search.py text "找 W底右侧抬升的 A 股" --universe stock --timeframe 1d --window-bars 120 --top-n 5
+```
+
+For images:
+
+```bash
+python scripts/xingtai_search.py image --image-path ./chart.png --kind upload_screenshot --universe all --timeframe 1d --window-bars 120 --top-n 5
+```
+
+Read `references/mcp-usage.md` for direct script commands, optional MCP configuration, and response formatting details.
+
+## MCP Mode
+
+If the platform already exposes the `xingtai-catcher` MCP tools:
 
 - Call `list_supported_patterns` when the user asks what markets, periods, BAR lengths, defaults, or limits are supported.
 - Call `find_similar_by_text` for text-only pattern requests.
 - Call `find_similar_by_image` when the user provides a K-line screenshot or hand-drawn trend image.
 - Call `get_match_result` when the user asks to reopen or summarize an existing `session_id`.
 - Call `create_share_link` only when the result does not already include a share URL or the user asks for a shareable link.
-
-Read `references/mcp-usage.md` when configuring MCP, mapping parameters, or formatting a complete response.
 
 ## Response Contract
 

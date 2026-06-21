@@ -6,7 +6,7 @@
 
 ## 它能做什么
 
-- 输入文字描述：例如“找 W 底”“找趋势延续”“找震荡突破前的形态”。
+- 输入文字描述：例如“找 W底”“找趋势延续”“找震荡突破前的形态”。
 - 输入 K 线截图：上传已有股票或期货 K 线截图，查找相似走势。
 - 输入手绘图：画一条走势轮廓，让智能体用形态捕手查找类似标的。
 - 指定维度：股票/期货、日线/60分钟、30/60/120 BAR、Top5/Top10。
@@ -19,7 +19,7 @@
 https://kkk.quant789.com/mcp
 ```
 
-正常使用时不需要手动填写 Token，也不需要自己部署服务。
+这个地址已经写在仓库脚本里。正常使用时不需要手动填写 Token，不需要自己部署服务，也不需要手动创建 MCP。
 
 ## 快速开始
 
@@ -42,7 +42,7 @@ https://github.com/quantskills/skill-xingtai-catcher/archive/refs/heads/main.zip
 然后你可以直接说：
 
 ```text
-帮我找 A 股里类似 W 底反转的股票，日线，120 根 BAR，返回 Top5。
+帮我找 A 股里类似 W底反转的股票，日线，120 根 BAR，返回 Top5。
 ```
 
 也可以上传 K 线截图或手绘走势图，然后说：
@@ -51,13 +51,37 @@ https://github.com/quantskills/skill-xingtai-catcher/archive/refs/heads/main.zip
 用这张图帮我找相似股票，优先看日线 120 根 BAR。
 ```
 
+AI 会优先运行仓库里的直连脚本：
+
+```bash
+python scripts/xingtai_search.py text "帮我找 A 股里类似 W底反转的股票，日线，120 根 BAR，返回 Top5" --universe stock --timeframe 1d --window-bars 120 --top-n 5
+```
+
 ### 3. 查看结果
 
 智能体会返回候选标的、相似度评分、结果页和分享链接。想要每天自动跟踪这个形态时，打开结果页登录形态捕手，保存形态并设置订阅推送。
 
-## 高级配置
+## 给 AI 的直连命令
 
-大多数用户不需要看这一节。只有当你的智能体平台要求手动添加 MCP 服务时，才需要填写下面的地址：
+如果你的 AI 需要明确命令，可以让它运行下面几类命令。
+
+文字找形态：
+
+```bash
+python scripts/xingtai_search.py text "找 W底右侧抬升的 A 股" --universe stock --timeframe 1d --window-bars 120 --top-n 5
+```
+
+图片找形态：
+
+```bash
+python scripts/xingtai_search.py image --image-path ./chart.png --kind upload_screenshot --universe all --timeframe 1d --window-bars 120 --top-n 5
+```
+
+手绘图把 `--kind upload_screenshot` 改成 `--kind drawing`。
+
+## 可选：MCP 配置
+
+大多数用户不需要看这一节。只有当你的智能体平台本身支持 MCP 服务配置时，才需要填写下面的地址：
 
 ```json
 {
@@ -69,14 +93,6 @@ https://github.com/quantskills/skill-xingtai-catcher/archive/refs/heads/main.zip
 }
 ```
 
-QCLAW/OpenClaw 风格客户端可以使用：
-
-```bash
-openclaw mcp add xingtai-catcher https://kkk.quant789.com/mcp
-openclaw mcp probe xingtai-catcher
-openclaw mcp tools xingtai-catcher
-```
-
 ## 演示
 
 ### 演示 1：文字找形态
@@ -84,7 +100,7 @@ openclaw mcp tools xingtai-catcher
 用户输入：
 
 ```text
-找一个 W 底后右侧抬升的形态，A股，日线，120 BAR。
+找一个 W底后右侧抬升的形态，A股，日线，120 BAR。
 ```
 
 智能体应使用参数：
@@ -197,6 +213,7 @@ skill-xingtai-catcher/
   LICENSE
   agents/openai.yaml
   references/mcp-usage.md
+  scripts/xingtai_search.py
 ```
 
 ## Contributors

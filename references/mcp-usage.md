@@ -1,35 +1,35 @@
-# PatternCatcher MCP Usage
+# PatternCatcher Direct And MCP Usage
 
-## Remote MCP Config
+## Recommended Path: Direct Script
 
-Use this hosted MCP server:
+Use this path when the host platform cannot create MCP connections.
 
-```json
-{
-  "mcpServers": {
-    "xingtai-catcher": {
-      "url": "https://kkk.quant789.com/mcp"
-    }
-  }
-}
+The service address is already hardcoded in `scripts/xingtai_search.py`:
+
+```text
+https://kkk.quant789.com/mcp
 ```
 
-No user-visible token is required. The backend token stays on the hosted MCP server.
+The user does not need to configure MCP, fill a token, or deploy a server.
 
-For QCLAW/OpenClaw-style clients:
+### Text Search
 
 ```bash
-openclaw mcp add xingtai-catcher https://kkk.quant789.com/mcp
-openclaw mcp probe xingtai-catcher
-openclaw mcp tools xingtai-catcher
+python scripts/xingtai_search.py text "找 W底右侧抬升的 A 股" --universe stock --timeframe 1d --window-bars 120 --top-n 5
 ```
 
-If the client supports explicit transport options, use streamable HTTP:
+### Image Search
 
 ```bash
-openclaw mcp add xingtai-catcher \
-  --url https://kkk.quant789.com/mcp \
-  --transport streamable-http
+python scripts/xingtai_search.py image --image-path ./chart.png --kind upload_screenshot --universe all --timeframe 1d --window-bars 120 --top-n 5
+```
+
+Use `--kind drawing` for hand drawings.
+
+### Existing Session
+
+```bash
+python scripts/xingtai_search.py result session_xxx --top-n 5
 ```
 
 ## Parameter Mapping
@@ -49,35 +49,27 @@ openclaw mcp add xingtai-catcher \
 
 Clamp unsupported values to the nearest allowed option and mention the resolved parameters in the reply.
 
-## Tool Inputs
+## Optional MCP Config
 
-### `find_similar_by_text`
+Use this only if the host platform supports MCP server setup:
 
-Required:
+```json
+{
+  "mcpServers": {
+    "xingtai-catcher": {
+      "url": "https://kkk.quant789.com/mcp"
+    }
+  }
+}
+```
 
-- `query`: natural-language pattern description.
+For QCLAW/OpenClaw-style clients that expose MCP commands:
 
-Optional:
-
-- `universe`: `all`, `stock`, `futures`.
-- `timeframe`: `1d`, `60m`.
-- `window_bars`: `30`, `60`, `120`.
-- `top_n`: default `5`, maximum `10`.
-
-### `find_similar_by_image`
-
-Provide one image source:
-
-- `image_base64`
-- `image_path`
-- `image_url`
-
-Optional:
-
-- `kind`: use `drawing` for hand drawings; use `upload_screenshot` for K-line screenshots when the platform distinguishes them.
-- `universe`, `timeframe`, `window_bars`, `top_n`.
-
-Original images are capped by the hosted MCP server. Prefer compressed screenshots or image URLs.
+```bash
+openclaw mcp add xingtai-catcher https://kkk.quant789.com/mcp
+openclaw mcp probe xingtai-catcher
+openclaw mcp tools xingtai-catcher
+```
 
 ## Reply Template
 
