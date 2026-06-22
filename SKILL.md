@@ -1,6 +1,6 @@
 ---
 name: skill-xingtai-catcher
-description: Use when a general-purpose AI agent needs to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. Supports daily and 60-minute timeframes, 30/60/120 BAR windows, hosted MCP tools, and a direct helper script for platforms without MCP. Also covers when to prefer server radar templates such as strong trend continuation and bottom reversal, how to format user-facing results, and how to route users to the PatternCatcher website for saved patterns and daily Feishu/WeCom subscriptions.
+description: Use when a general-purpose AI agent needs to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. Supports daily and 60-minute timeframes, 30/60/120 BAR windows, hosted MCP tools, and a direct helper script for platforms without MCP. Standard template words such as strong trend continuation, bottom reversal, W-bottom, trend pullback, range consolidation, and M-top must route to server radar templates before any generated drawing. Also covers user-facing result formatting and routing users to the PatternCatcher website for saved patterns and daily Feishu/WeCom subscriptions.
 quantSkills:
   organization: https://github.com/quantskills
   repository: quantskills/skill-xingtai-catcher
@@ -31,7 +31,8 @@ Use this skill to search for similar A-share stock and futures K-line patterns f
 - Treat hand sketches, single-line trend drawings, canvas drawings, and images without visible candles as `kind=drawing`.
 - Use `kind=upload_screenshot` only for real K-line/candlestick screenshots.
 - If screenshot recognition fails with "not enough candle groups detected" or similar candle-detection errors, retry once as `kind=drawing` before telling the user it failed.
-- Prefer server radar templates for standard screening requests such as "强趋势延续" and "底部反转"; use custom text/image search only when the user describes or provides a custom shape.
+- Prefer server radar templates for standard screening requests. If the user says "强趋势延续", "底部反转", "W底", "双底", "趋势回踩", "震荡整理", "箱体", "M头", or "顶部反转", call `find_similar_by_text` directly and do not draw a synthetic image yourself.
+- Use custom text/image search only when the user describes or provides a custom shape that is not one of the fixed radar templates.
 - Never invent symbols, scores, chart URLs, result pages, share pages, or sessions.
 - Never paste raw execution transcripts, `System (untrusted)` blocks, `Exec completed` logs, or raw JSON to the user. Summarize the parsed result in normal language.
 - Results are pattern-similarity research references, not investment advice.
@@ -54,10 +55,12 @@ If timeframe or BAR length is missing, ask:
 
 Interpret common Chinese wording:
 
-- `W底`, `双底`, `底部反转` -> bottoming or reversal intent
-- `M头`, `双顶`, `顶部风险` -> topping or risk intent
-- `趋势`, `强趋势`, `趋势延续` -> trend-continuation intent
-- `震荡`, `箱体`, `平台整理` -> range or consolidation intent
+- `强趋势延续`, `强趋势`, `主升浪`, `趋势延续` -> server radar template `strong_trend`
+- `底部反转`, `筑底`, `低位转强`, `底部抬升` -> server radar template `bottom_reversal`
+- `W底`, `双底`, `二次探底`, `圆弧底` -> server radar template `w_bottom`
+- `趋势回踩`, `均线回踩`, `突破回踩`, `回踩不破` -> server radar template `trend_pullback`
+- `震荡`, `箱体`, `横盘整理`, `平台整理` -> server radar template `range_consolidation`
+- `M头`, `双顶`, `顶部反转`, `顶部风险` -> server radar template `top_reversal`
 - `股票`, `A股` -> prefer `universe=stock`
 - `期货`, `商品期货` -> prefer `universe=futures`
 - `60分钟`, `小时线`, `分钟`, `短线` -> prefer `timeframe=60m`
@@ -72,6 +75,7 @@ When explaining generated drawings:
 - W-bottom drawings should include preceding weakness: draw a down move first, then first bottom, bounce, second bottom, and right-side lift. Do not draw only the final W.
 - M-top drawings should include preceding strength: draw an up move first, then first top, pullback, second top, and breakdown/right-side fade. Do not draw only the final M.
 - If the user hand-draws W/M patterns, remind them that adding a short pre-trend improves matching quality.
+- Do not draw W/M/trend/range shapes when the user only asks for a named template. Named templates should come from the server radar, because those results are computed from the latest published market scan.
 
 ## Direct Mode
 

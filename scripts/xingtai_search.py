@@ -228,9 +228,35 @@ def _format_match(data: dict[str, Any]) -> str:
     timeframe = _timeframe_label(_first_present(params.get("timeframe"), first_item.get("timeframe")))
     window_bars = _first_present(params.get("window_bars"), first_item.get("window_bars"), first_item.get("bar_count"), 120)
     top_n = params.get("top_n") or len(items) or 5
+    result_type = str(data.get("result_type") or "")
+    if result_type == "needs_clarification":
+        supported = data.get("supported_patterns") or []
+        names = [str(item.get("name") or item.get("template_id")) for item in supported[:6]]
+        lines = [
+            "这句话没有命中固定雷达模板。",
+            "",
+            f"当前参数：{universe} / {timeframe} / {window_bars} BAR / Top{top_n}",
+            "",
+            "你可以换成更明确的模板词，例如：强趋势延续、底部反转、W底、趋势回踩、震荡整理、M头。",
+        ]
+        if names:
+            lines.append(f"可用模板：{'、'.join(names)}")
+        lines.extend(
+            [
+                "",
+                "如果你想找的是自定义形态，请上传 K 线截图或手绘走势图。",
+            ]
+        )
+        return "\n".join(lines)
+    template_name = data.get("template_name") or data.get("radar_template_id") or ""
+    lead = (
+        f"我按服务器雷达模板「{template_name}」和「{universe} / {timeframe} / {window_bars} BAR / Top{top_n}」为你筛选了候选标的。"
+        if result_type == "radar_template"
+        else f"我按「{universe} / {timeframe} / {window_bars} BAR / Top{top_n}」为你查找了相似形态。"
+    )
 
     lines = [
-        f"我按「{universe} / {timeframe} / {window_bars} BAR / Top{top_n}」为你查找了相似形态。",
+        lead,
         "",
         "候选结果：",
     ]

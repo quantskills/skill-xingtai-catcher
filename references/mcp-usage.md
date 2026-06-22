@@ -34,6 +34,8 @@ Only use `timeframe=1d` and `window_bars=120` without asking when the user says 
 
 ## Text Search
 
+For named templates such as `强趋势延续`, `底部反转`, `W底`, `双底`, `趋势回踩`, `震荡整理`, `箱体`, `M头`, or `顶部反转`, call text search directly. The server will route them to radar templates and return today's template results. Do not generate a synthetic drawing for these named templates.
+
 ```bash
 python scripts/xingtai_search.py text "找 W 底右侧抬升的 A 股" --universe stock --timeframe 1d --window-bars 120 --top-n 5
 ```
@@ -95,6 +97,12 @@ python scripts/xingtai_search.py result session_xxx --top-n 5
 | 120根、默认、最近半年 | `window_bars=120` |
 | Top5、默认 | `top_n=5` |
 | Top10、多一点 | `top_n=10` |
+| 强趋势延续、强趋势、主升浪 | direct radar template `strong_trend` |
+| 底部反转、筑底、低位转强 | direct radar template `bottom_reversal` |
+| W底、双底、二次探底、圆弧底 | direct radar template `w_bottom` |
+| 趋势回踩、均线回踩、突破回踩 | direct radar template `trend_pullback` |
+| 震荡、箱体、横盘整理、平台整理 | direct radar template `range_consolidation` |
+| M头、双顶、顶部反转 | direct radar template `top_reversal` |
 
 Clamp unsupported values to the nearest allowed option and mention the resolved parameters in the reply.
 
@@ -102,7 +110,7 @@ Clamp unsupported values to the nearest allowed option and mention the resolved 
 
 - W-bottom searches should include a preceding decline before the W, then the right-side lift.
 - M-top searches should include a preceding rise before the M, then the right-side fade or breakdown.
-- Standard screening requests such as 强趋势延续 and 底部反转 should prefer server radar templates and their subscribe URLs. Ask the user to draw only for custom shapes.
+- Standard screening requests such as 强趋势延续、底部反转、W底、趋势回踩、震荡整理、M头 should prefer server radar templates and their subscribe URLs. Ask the user to draw only for custom shapes.
 
 ## Optional MCP Config
 
