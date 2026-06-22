@@ -29,6 +29,7 @@ Use this skill to search for similar A-share stock and futures K-line patterns f
 - Resolve `timeframe` and `window_bars` before searching. If the user did not clearly specify them and they cannot be inferred, ask one short clarification question.
 - Default only when the user says "默认", "你看着办", or "都行": `universe=all`, `timeframe=1d`, `window_bars=120`, `top_n=5`.
 - Treat hand sketches, single-line trend drawings, canvas drawings, and images without visible candles as `kind=drawing`.
+- For `kind=drawing`, always use `mode=high_precision` unless the user explicitly asks for a fast/coarse search.
 - Use `kind=upload_screenshot` only for real K-line/candlestick screenshots.
 - If screenshot recognition fails with "not enough candle groups detected" or similar candle-detection errors, retry once as `kind=drawing` before telling the user it failed.
 - Prefer server radar templates for standard screening requests. If the user says "强趋势延续", "底部反转", "W底", "双底", "趋势回踩", "震荡整理", "箱体", "M头", or "顶部反转", call `find_similar_by_text` directly and do not draw a synthetic image yourself.
@@ -90,7 +91,7 @@ python scripts/xingtai_search.py text "找 W 底右侧抬升的 A 股" --univers
 For hand drawings or single-line sketches:
 
 ```bash
-python scripts/xingtai_search.py image --image-path ./drawing.png --kind drawing --universe all --timeframe 1d --window-bars 120 --top-n 5
+python scripts/xingtai_search.py image --image-path ./drawing.png --kind drawing --mode high_precision --universe all --timeframe 1d --window-bars 120 --top-n 5
 ```
 
 For real K-line screenshots:
@@ -117,7 +118,7 @@ If the host platform already exposes the `xingtai-catcher` MCP tools:
 
 - Call `list_supported_patterns` when the user asks what markets, periods, BAR lengths, defaults, or limits are supported.
 - Call `find_similar_by_text` for text-only pattern requests.
-- Call `find_similar_by_image` for K-line screenshots or hand-drawn trend images. Pass `kind=drawing` for sketches and `kind=upload_screenshot` only for candlestick screenshots.
+- Call `find_similar_by_image` for K-line screenshots or hand-drawn trend images. Pass `kind=drawing, mode=high_precision` for sketches and `kind=upload_screenshot` only for candlestick screenshots.
 - Call `get_match_result` when the user asks to reopen or summarize an existing `session_id`.
 - Call `create_share_link` only when the result does not already include a share URL or the user asks for a shareable link.
 

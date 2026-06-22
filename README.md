@@ -159,7 +159,7 @@ python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-
 
 ### 为什么手绘图提示识别不到 K 线？
 
-手绘线条、单线走势图、画布截图都应该按 `drawing` 处理；只有真实蜡烛图截图才用 `upload_screenshot`。如果误用了截图模式，脚本会自动按手绘图重试一次。
+手绘线条、单线走势图、画布截图都应该按 `drawing` 处理，并默认使用 `mode=high_precision`；只有真实蜡烛图截图才用 `upload_screenshot`。如果误用了截图模式，脚本会自动按手绘图重试一次。
 
 ## 直接运行脚本
 
@@ -176,7 +176,7 @@ python scripts/xingtai_search.py text "找 W 底右侧抬升的 A 股" --univers
 手绘图搜索：
 
 ```bash
-python scripts/xingtai_search.py image --image-path ./drawing.png --kind drawing --universe all --timeframe 1d --window-bars 120 --top-n 5
+python scripts/xingtai_search.py image --image-path ./drawing.png --kind drawing --mode high_precision --universe all --timeframe 1d --window-bars 120 --top-n 5
 ```
 
 K 线截图搜索：

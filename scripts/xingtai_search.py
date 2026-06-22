@@ -369,6 +369,12 @@ def build_parser() -> argparse.ArgumentParser:
     image.add_argument("--universe", choices=["all", "stock", "futures"], default="all")
     image.add_argument("--timeframe", choices=["1d", "60m"], default="1d")
     image.add_argument("--window-bars", type=int, choices=[30, 60, 120], default=120)
+    image.add_argument(
+        "--mode",
+        choices=["high_precision", "coarse"],
+        default="high_precision",
+        help="Drawing match mode. Use high_precision by default to match the website hand-drawing behavior.",
+    )
     image.add_argument("--top-n", type=int, default=5)
     image.add_argument(
         "--no-retry-as-drawing",
@@ -407,6 +413,7 @@ def main(argv: list[str] | None = None) -> int:
             payload = {
                 "image_base64": image_base64,
                 "kind": args.kind,
+                "mode": args.mode,
                 "universe": args.universe,
                 "timeframe": args.timeframe,
                 "window_bars": args.window_bars,

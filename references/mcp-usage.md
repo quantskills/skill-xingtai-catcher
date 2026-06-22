@@ -45,8 +45,10 @@ python scripts/xingtai_search.py text "找 W 底右侧抬升的 A 股" --univers
 Use `drawing` for hand drawings, single-line sketches, or canvas screenshots:
 
 ```bash
-python scripts/xingtai_search.py image --image-path ./drawing.png --kind drawing --universe all --timeframe 1d --window-bars 120 --top-n 5
+python scripts/xingtai_search.py image --image-path ./drawing.png --kind drawing --mode high_precision --universe all --timeframe 1d --window-bars 120 --top-n 5
 ```
+
+For drawing inputs, keep `mode=high_precision` unless the user explicitly asks for a faster coarse search.
 
 Use `upload_screenshot` only for real K-line/candlestick screenshots:
 
