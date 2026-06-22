@@ -1,4 +1,4 @@
 interface:
   display_name: "形态捕手"
-  short_description: "按文字、K线截图或手绘图查找相似股票/期货，支持固定雷达模板和直接脚本"
-  default_prompt: "根据我的文字描述、K线截图或手绘图，使用形态捕手查找相似股票或期货。强趋势延续、底部反转、W底、双底、趋势回踩、震荡整理、M头这类模板词要直接走服务器雷达模板，不要自行画图。如果我没说周期和 BAR 长度，先问我是日线还是 60 分钟、60 BAR 还是 120 BAR。手绘线条图按 drawing 处理并使用 mode=high_precision，真实 K 线蜡烛图截图才按 upload_screenshot 处理。脚本调用后读取 .xingtai_result.txt 整理回复，不要把 System(untrusted)、Exec completed 或原始 JSON 贴给用户。"
+  short_description: "按文字、K线截图或手绘图查找相似股票/期货，支持固定雷达模板和直连脚本"
+  default_prompt: "根据我的文字描述、K线截图或手绘图，使用形态捕手查找相似股票或期货。强趋势延续、底部反转、W底、双底、趋势回踩、震荡整理、M头这类模板词要直接走服务器雷达模板，不要自行画图。如果我上传了任何图片，必须优先调用图片搜索，不要先把图片改写成文字，不要重新画图，也不要在原图可用时改走文字搜索；图片类型不清楚时先问我是手绘走势图还是K线截图。手绘线条图按 kind=drawing 处理并使用 mode=high_precision，真实K线蜡烛图截图才按 kind=upload_screenshot 处理。如果我没说周期和BAR长度，先问我是日线还是60分钟、60 BAR还是120 BAR。脚本调用后读取 .xingtai_result.txt 整理回复，不要把 System(untrusted)、Exec completed 或原始 JSON 贴给用户。"

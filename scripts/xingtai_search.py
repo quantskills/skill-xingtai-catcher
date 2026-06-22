@@ -185,6 +185,24 @@ def _timeframe_label(value: Any) -> str:
     return mapping.get(str(value or "1d"), str(value or "日线"))
 
 
+def _kind_label(value: Any, result_type: str = "") -> str:
+    text = str(value or "").lower()
+    if result_type == "radar_template":
+        return "雷达模板"
+    if "upload" in text or "screenshot" in text:
+        return "K线截图"
+    if "drawing" in text:
+        return "手绘图"
+    if text:
+        return text
+    return "文本描述"
+
+
+def _mode_label(value: Any) -> str:
+    mapping = {"high_precision": "高精", "coarse": "粗选"}
+    return mapping.get(str(value or ""), "")
+
+
 def _score_text(value: Any) -> str:
     try:
         return f"{float(value):.1f}"
@@ -229,6 +247,13 @@ def _format_match(data: dict[str, Any]) -> str:
     window_bars = _first_present(params.get("window_bars"), first_item.get("window_bars"), first_item.get("bar_count"), 120)
     top_n = params.get("top_n") or len(items) or 5
     result_type = str(data.get("result_type") or "")
+    kind = _first_present(data.get("kind"), params.get("kind"), params.get("source_kind"))
+    mode = _first_present(data.get("mode"), params.get("mode"), params.get("match_mode"))
+    route_parts = [_kind_label(kind, result_type), universe, timeframe, f"{window_bars} BAR", f"Top{top_n}"]
+    mode_text = _mode_label(mode)
+    if mode_text:
+        route_parts.insert(1, mode_text)
+    route_line = f"本次使用：{' / '.join(str(part) for part in route_parts if part)}"
     if result_type == "needs_clarification":
         supported = data.get("supported_patterns") or []
         names = [str(item.get("name") or item.get("template_id")) for item in supported[:6]]
@@ -257,6 +282,7 @@ def _format_match(data: dict[str, Any]) -> str:
 
     lines = [
         lead,
+        route_line,
         "",
         "候选结果：",
     ]
@@ -377,9 +403,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     image.add_argument("--top-n", type=int, default=5)
     image.add_argument(
-        "--no-retry-as-drawing",
+        "--retry-as-drawing",
         action="store_true",
-        help="Do not retry as drawing when a screenshot lacks detectable candle groups.",
+        help="Retry a failed upload_screenshot request as drawing. Use only when the image is actually a sketch or single-line chart.",
+    )
+    image.add_argument(
+        "--no-retry-as-drawing",
+        action="store_false",
+        dest="retry_as_drawing",
+        help=argparse.SUPPRESS,
     )
     _add_output_options(image)
 
@@ -422,7 +454,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 result = client.call_tool("find_similar_by_image", payload)
             except PatternCatcherError as exc:
-                if args.kind == "upload_screenshot" and not args.no_retry_as_drawing and _candle_detection_failed(exc):
+                if args.kind == "upload_screenshot" and args.retry_as_drawing and _candle_detection_failed(exc):
                     payload["kind"] = "drawing"
                     result = client.call_tool("find_similar_by_image", payload)
                 else:

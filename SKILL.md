@@ -1,6 +1,6 @@
 ---
 name: skill-xingtai-catcher
-description: Use when a general-purpose AI agent needs to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. Supports daily and 60-minute timeframes, 30/60/120 BAR windows, hosted MCP tools, and a direct helper script for platforms without MCP. Standard template words such as strong trend continuation, bottom reversal, W-bottom, trend pullback, range consolidation, and M-top must route to server radar templates before any generated drawing. Also covers user-facing result formatting and routing users to the PatternCatcher website for saved patterns and daily Feishu/WeCom subscriptions.
+description: Use when a general-purpose AI agent needs to find A-share stocks or futures with similar K-line patterns from natural-language descriptions, K-line screenshots, or hand-drawn trend images. Supports daily and 60-minute timeframes, 30/60/120 BAR windows, hosted MCP tools, and a direct helper script for platforms without MCP. Standard template words such as strong trend continuation, bottom reversal, W-bottom, trend pullback, range consolidation, and M-top must route to server radar templates before any generated drawing. Image attachments must route through image search directly. Also covers user-facing result formatting and routing users to the PatternCatcher website for saved patterns and daily Feishu/WeCom subscriptions.
 quantSkills:
   organization: https://github.com/quantskills
   repository: quantskills/skill-xingtai-catcher
@@ -20,114 +20,113 @@ quantSkills:
   summary_en: Find similar A-share stock and futures K-line patterns from text, screenshots, or hand drawings, with a direct helper script for non-MCP agents.
 ---
 
-# Xingtai Pattern Catcher
+# 形态捕手 Skill
 
-Use this skill to search for similar A-share stock and futures K-line patterns from text, K-line screenshots, or hand-drawn trend images.
+用这个 Skill 让通用智能体根据文字描述、K 线截图或手绘走势，在 A 股和期货数据里查找相似形态，并返回候选标的、评分、结果页和分享页。
 
-## Core Rules
+结果仅用于形态相似度研究，不构成投资建议。
 
-- Resolve `timeframe` and `window_bars` before searching. If the user did not clearly specify them and they cannot be inferred, ask one short clarification question.
-- Default only when the user says "默认", "你看着办", or "都行": `universe=all`, `timeframe=1d`, `window_bars=120`, `top_n=5`.
-- Treat hand sketches, single-line trend drawings, canvas drawings, and images without visible candles as `kind=drawing`.
-- For `kind=drawing`, always use `mode=high_precision` unless the user explicitly asks for a fast/coarse search.
-- Use `kind=upload_screenshot` only for real K-line/candlestick screenshots.
-- If screenshot recognition fails with "not enough candle groups detected" or similar candle-detection errors, retry once as `kind=drawing` before telling the user it failed.
-- Prefer server radar templates for standard screening requests. If the user says "强趋势延续", "底部反转", "W底", "双底", "趋势回踩", "震荡整理", "箱体", "M头", or "顶部反转", call `find_similar_by_text` directly and do not draw a synthetic image yourself.
-- Use custom text/image search only when the user describes or provides a custom shape that is not one of the fixed radar templates.
-- Never invent symbols, scores, chart URLs, result pages, share pages, or sessions.
-- Never paste raw execution transcripts, `System (untrusted)` blocks, `Exec completed` logs, or raw JSON to the user. Summarize the parsed result in normal language.
-- Results are pattern-similarity research references, not investment advice.
-- If the user wants daily tracking, send them to the returned PatternCatcher result/share URL to log in, save the pattern or subscribe to a radar template, and configure Feishu or WeCom push settings.
+## 核心规则
 
-## Parameter Clarification
+- 搜索前先确定 `timeframe` 和 `window_bars`。如果用户没有说明，也不能从上下文推断，就先问一个简短问题。
+- 只有当用户说“默认”“你看着办”“都行”时，才使用默认参数：`universe=all`, `timeframe=1d`, `window_bars=120`, `top_n=5`。
+- 只要用户提供了图片附件，必须优先走图片搜索。不要先把图片改写成文字，不要重新生成或重画一张图，也不要在原图可用时改走文字/模板搜索。
+- 如果图片类型不清楚，只问一句：“这是手绘走势图，还是 K 线截图？”
+- 手绘线条、单线趋势图、画布截图、没有清晰蜡烛 K 线的图片，按 `kind=drawing` 处理。
+- `kind=drawing` 默认使用 `mode=high_precision`，除非用户明确要求快速粗选。
+- 真实 K 线蜡烛图截图才使用 `kind=upload_screenshot`。
+- 真实 K 线截图如果报 `not enough candle groups detected` 或类似蜡烛识别错误，不要静默改成 `drawing`。先让用户裁剪得更清楚，或者等用户确认它其实是手绘/单线图后再按 `drawing` 重试。
+- 标准模板词优先走服务器雷达模板。如果用户说“强趋势延续”“底部反转”“W底”“双底”“趋势回踩”“震荡整理”“箱体”“M头”“顶部反转”，直接调用 `find_similar_by_text`，不要自己临时画图。
+- 只有用户描述的是自定义形态，且不是固定雷达模板，也没有上传图片时，才走自定义文字/画图匹配。
+- 不要编造标的、评分、图表地址、结果页、分享页或 session。
+- 不要把 `System (untrusted)`、`Exec completed`、原始 JSON 或工具调用日志贴给用户。读取 `.xingtai_result.txt` 后，用正常语言总结。
+- 如果用户想每天跟踪，提示他打开返回的形态捕手结果页，登录后保存形态或订阅模板，并配置飞书/企业微信推送。
 
-Supported dimensions:
+## 参数维度
 
-- Universe: `all`, `stock`, `futures`
-- Timeframe: `1d` for 日线, `60m` for 60分钟
-- Window length: `30`, `60`, `120` BAR. Prefer 60 or 120; use 30 only when the user explicitly asks for a short window.
-- Results: default Top5, maximum Top10
+支持这些维度：
 
-If timeframe or BAR length is missing, ask:
+- 市场：`all`, `stock`, `futures`
+- 周期：`1d` 日线，`60m` 60 分钟
+- 匹配长度：`30`, `60`, `120` BAR。默认优先 120 BAR；用户明确要短窗口时才用 30 BAR。
+- 返回数量：默认 Top5，最多 Top10
+
+如果周期或 BAR 长度缺失，先问：
 
 ```text
 你想按哪个周期和长度匹配？可以选：日线 120 BAR、日线 60 BAR、60分钟 120 BAR、60分钟 60 BAR。你也可以说“默认”，我就用日线 120 BAR。
 ```
 
-Interpret common Chinese wording:
+常见表达映射：
 
-- `强趋势延续`, `强趋势`, `主升浪`, `趋势延续` -> server radar template `strong_trend`
-- `底部反转`, `筑底`, `低位转强`, `底部抬升` -> server radar template `bottom_reversal`
-- `W底`, `双底`, `二次探底`, `圆弧底` -> server radar template `w_bottom`
-- `趋势回踩`, `均线回踩`, `突破回踩`, `回踩不破` -> server radar template `trend_pullback`
-- `震荡`, `箱体`, `横盘整理`, `平台整理` -> server radar template `range_consolidation`
-- `M头`, `双顶`, `顶部反转`, `顶部风险` -> server radar template `top_reversal`
-- `股票`, `A股` -> prefer `universe=stock`
-- `期货`, `商品期货` -> prefer `universe=futures`
-- `60分钟`, `小时线`, `分钟`, `短线` -> prefer `timeframe=60m`
-- `日线`, `中线`, `波段`, `最近半年` -> prefer `timeframe=1d` and `window_bars=120`
-- `60根`, `60 BAR` -> use `window_bars=60`
-- `120根`, `120 BAR`, `最近半年` -> use `window_bars=120`
+- `强趋势延续`, `强趋势`, `主升浪`, `趋势延续` -> 雷达模板 `strong_trend`
+- `底部反转`, `筑底`, `低位转强`, `底部抬升` -> 雷达模板 `bottom_reversal`
+- `W底`, `双底`, `二次探底`, `圆弧底` -> 雷达模板 `w_bottom`
+- `趋势回踩`, `均线回踩`, `突破回踩`, `回踩不破` -> 雷达模板 `trend_pullback`
+- `震荡`, `箱体`, `横盘整理`, `平台整理` -> 雷达模板 `range_consolidation`
+- `M头`, `双顶`, `顶部反转`, `顶部风险` -> 雷达模板 `top_reversal`
+- `股票`, `A股` -> 优先 `universe=stock`
+- `期货`, `商品期货` -> 优先 `universe=futures`
+- `60分钟`, `小时线`, `分钟`, `短线` -> 优先 `timeframe=60m`
+- `日线`, `中线`, `波段`, `最近半年` -> 优先 `timeframe=1d`, `window_bars=120`
+- `60根`, `60 BAR` -> `window_bars=60`
+- `120根`, `120 BAR`, `最近半年` -> `window_bars=120`
 
-## Shape Context
+## 形态上下文
 
-When explaining generated drawings:
+- W 底手绘图应包含前置下跌，再画第一个底、反弹、第二个底、右侧抬升。不要只画最后一个 W。
+- M 头手绘图应包含前置上涨，再画第一个顶、回落、第二个顶、右侧走弱。不要只画最后一个 M。
+- 如果用户手绘 W/M 形态，提醒他加一小段前置趋势，匹配质量会更高。
+- 如果用户只是说固定模板名，例如“底部反转”“强趋势延续”，直接用雷达模板，不要手动画图。
 
-- W-bottom drawings should include preceding weakness: draw a down move first, then first bottom, bounce, second bottom, and right-side lift. Do not draw only the final W.
-- M-top drawings should include preceding strength: draw an up move first, then first top, pullback, second top, and breakdown/right-side fade. Do not draw only the final M.
-- If the user hand-draws W/M patterns, remind them that adding a short pre-trend improves matching quality.
-- Do not draw W/M/trend/range shapes when the user only asks for a named template. Named templates should come from the server radar, because those results are computed from the latest published market scan.
+## 直连脚本模式
 
-## Direct Mode
+当平台没有 MCP 工具，但可以运行本地脚本时，使用 `scripts/xingtai_search.py`。
 
-Use direct mode when MCP tools are not available and the host can run local scripts.
+脚本默认把结果写入 `.xingtai_result.txt` 和 `.xingtai_result.json`，不要直接把 stdout 里的工具日志发给用户。
 
-For AI-platform usage, run the script normally and then read `.xingtai_result.txt`. In captured/non-interactive environments the script intentionally does not print the full result to stdout, so platforms like QCLAW do not expose candidates and links inside a `System (untrusted)` block.
+文字模板或文字描述：
 
 ```bash
 python scripts/xingtai_search.py text "找 W 底右侧抬升的 A 股" --universe stock --timeframe 1d --window-bars 120 --top-n 5
 ```
 
-For hand drawings or single-line sketches:
+手绘图或单线图：
 
 ```bash
 python scripts/xingtai_search.py image --image-path ./drawing.png --kind drawing --mode high_precision --universe all --timeframe 1d --window-bars 120 --top-n 5
 ```
 
-For real K-line screenshots:
+真实 K 线截图：
 
 ```bash
 python scripts/xingtai_search.py image --image-path ./chart.png --kind upload_screenshot --universe all --timeframe 1d --window-bars 120 --top-n 5
 ```
 
-After the command finishes, read `.xingtai_result.txt` and summarize it. Use `.xingtai_result.json` only when structured fields are needed.
-
-If a human is debugging in a terminal and wants stdout output, add `--print`:
+如果人工调试需要打印结果，加 `--print`：
 
 ```bash
 python scripts/xingtai_search.py text "找底部反转" --timeframe 1d --window-bars 120 --print
 ```
 
-Use `--json` only for debugging or custom integrations. Never paste raw JSON into the user-facing answer.
+读取 `references/mcp-usage.md` 获取脚本、MCP 配置和回复格式细节。
 
-Read `references/mcp-usage.md` for direct script commands, optional MCP configuration, and response formatting details.
+## MCP 模式
 
-## MCP Mode
+如果平台已经暴露 `xingtai-catcher` MCP 工具：
 
-If the host platform already exposes the `xingtai-catcher` MCP tools:
+- 用户问支持哪些市场、周期、BAR 长度、默认值、限制时，调用 `list_supported_patterns`。
+- 纯文字形态请求，调用 `find_similar_by_text`。
+- 图片请求，调用 `find_similar_by_image`。手绘图传 `kind=drawing, mode=high_precision`；真实 K 线截图才传 `kind=upload_screenshot`。
+- 用户要重开或总结已有结果时，调用 `get_match_result`。
+- 结果没有分享页，或用户明确要分享链接时，再调用 `create_share_link`。
 
-- Call `list_supported_patterns` when the user asks what markets, periods, BAR lengths, defaults, or limits are supported.
-- Call `find_similar_by_text` for text-only pattern requests.
-- Call `find_similar_by_image` for K-line screenshots or hand-drawn trend images. Pass `kind=drawing, mode=high_precision` for sketches and `kind=upload_screenshot` only for candlestick screenshots.
-- Call `get_match_result` when the user asks to reopen or summarize an existing `session_id`.
-- Call `create_share_link` only when the result does not already include a share URL or the user asks for a shareable link.
+## 回复格式
 
-## Response Contract
-
-Reply in the user's language. For Chinese users, use this shape:
+中文用户建议这样回复：
 
 ```text
-我按「全市场 / 日线 / 120 BAR / Top5」为你查找了相似形态。
+我按「手绘图 / 高精 / 全市场 / 日线 / 120 BAR / Top5」为你查找了相似形态。
 
 候选结果：
 1. 标的名称 代码，评分 xx.x，股票/期货，数据日 yyyy-mm-dd
@@ -137,5 +136,6 @@ Reply in the user's language. For Chinese users, use this shape:
 分享页：https://...
 
 想每天自动跟踪这个形态，请打开结果页登录形态捕手，保存形态或订阅模板，并设置飞书/企微推送。
+
 结果仅用于形态相似度研究，不构成投资建议。
 ```
